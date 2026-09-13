@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "typeRoots": ["node_modules/@types", "node_modules/obsidian"],
+    "module": "ESNext",
+    "target": "ES6",
+    "strict": true,
+    "noUnusedLocals": true,
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "lib": ["DOM", "ES2020"]
+  },
+  "include": ["src/**/*.ts"]
+}

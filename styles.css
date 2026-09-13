@@ -1,0 +1,23 @@
+.journal-companion-dashboard { max-width: 1180px; margin: 0 auto; padding: 28px 24px 56px; color: var(--text-normal); }
+.journal-companion-hero { padding: 28px; border: 1px solid var(--background-modifier-border); border-radius: 18px; background: linear-gradient(135deg, var(--background-secondary), var(--background-primary)); margin-bottom: 20px; }
+.journal-companion-kicker, .journal-companion-eyebrow { color: var(--interactive-accent); font-size: .75rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.journal-companion-hero h1 { font-size: clamp(2rem, 6vw, 3.8rem); margin: 8px 0; }
+.journal-companion-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.journal-companion-actions button { min-height: 36px; }
+.journal-companion-notice { color: var(--text-muted); font-size: .9rem; }
+.journal-companion-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+.journal-companion-metric { padding: 16px; border: 1px solid var(--background-modifier-border); border-radius: 14px; background: var(--background-secondary); display: grid; gap: 4px; }
+.journal-companion-metric strong { font-size: 1.6rem; }
+.journal-companion-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.journal-companion-card { border: 1px solid var(--background-modifier-border); border-radius: 16px; padding: 18px; background: var(--background-secondary); min-width: 0; }
+.journal-companion-card h2 { margin-top: 0; }
+.journal-companion-card-body { display: grid; gap: 8px; }
+.journal-companion-card a { color: var(--text-accent); cursor: pointer; }
+.journal-companion-muted { color: var(--text-muted); }
+.journal-companion-check { display: inline-flex; align-items: center; gap: 8px; margin: 4px 12px 4px 0; }
+.journal-companion-progress { height: 12px; border-radius: 999px; background: var(--background-modifier-border); overflow: hidden; }
+.journal-companion-progress-fill { height: 100%; border-radius: inherit; background: var(--interactive-accent); transition: width .2s ease; }
+.journal-companion-prayer { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.rb-addon-modal-content { max-height: min(88vh, 900px); overflow-y: auto; overscroll-behavior: contain; padding: 18px 20px calc(32px + env(safe-area-inset-bottom)); }
+.journal-companion-modal .setting-item { flex-wrap: wrap; }
+@media (max-width: 700px) { .journal-companion-dashboard { padding: 16px 12px calc(40px + env(safe-area-inset-bottom)); } .journal-companion-hero { padding: 20px; } .journal-companion-metrics, .journal-companion-grid { grid-template-columns: 1fr; } .journal-companion-actions button { flex: 1 1 140px; } }

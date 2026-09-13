@@ -1,0 +1,19 @@
+{
+  "name": "journal-companion",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "build": "node esbuild.config.mjs production",
+    "typecheck": "tsc --noEmit",
+    "validate": "node scripts/validate-build.mjs && node scripts/validate-portability.mjs",
+    "test": "npm run typecheck && npm run build && npm run validate"
+  },
+  "devDependencies": {
+    "builtin-modules": "^4.0.0",
+    "esbuild": "^0.25.0",
+    "obsidian": "latest",
+    "typescript": "^5.7.0"
+  },
+  "author": "Red-Beard",
+  "license": "MIT"
+}

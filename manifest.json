@@ -1,0 +1,9 @@
+{
+  "id": "journal-companion",
+  "name": "Journal Companion",
+  "version": "1.0.0",
+  "minAppVersion": "1.5.0",
+  "description": "A Markdown-first daily journal with seasons, recurring goals, focuses, reviews, and optional Prayer Library integration.",
+  "author": "Red-Beard",
+  "isDesktopOnly": false
+}
