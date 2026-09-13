@@ -1,7 +1,7 @@
 import { Notice, Plugin, TFile } from "obsidian";
 import { JournalDashboardView } from "./dashboard";
 import { JournalMigration } from "./migration";
-import { AreaManagerModal, ConfirmModal, SeasonModal } from "./modals";
+import { AreaManagerModal, ConfirmModal, MigrationPreviewModal, SeasonModal } from "./modals";
 import { JournalRepository } from "./repository";
 import { JournalSettingsTab } from "./settings";
 import { PLUGIN_ID, VIEW_ID, type JournalSettings, type JournalWidgetDefinition, type SeasonRecord } from "./types";
@@ -72,7 +72,7 @@ export default class JournalCompanion extends Plugin {
   async refresh(): Promise<void> { this.repository = new JournalRepository(this.app, this.settings); for (const leaf of this.app.workspace.getLeavesOfType(VIEW_ID)) { const view = leaf.view as JournalDashboardView; await view.render(); } }
   async openReview(cadence: "weekly" | "monthly" | "quarterly"): Promise<void> { await ensureFolders(this.app.vault, [this.settings.folders.reviews]); const date = today(); const path = `${this.settings.folders.reviews}/${safeFilename(`${cadence}-${date}`)}.md`; const existing = this.app.vault.getAbstractFileByPath(path); if (existing instanceof TFile) { this.openNote(path); return; } const title = `${cadence[0].toUpperCase()}${cadence.slice(1)} review — ${date}`; const file = await this.app.vault.create(path, `---\ntype: journal-companion-review\ncadence: ${cadence}\ndate: ${date}\ncreated: ${new Date().toISOString()}\nupdated: ${new Date().toISOString()}\n---\n\n# ${title}\n\n## Wins\n\n- \n\n## What needs attention\n\n- \n\n## Next steps\n\n- \n`); this.openNote(file.path); }
 
-  async previewMigration(): Promise<void> { const report = await this.migration.preview(); new Notice(report.items.length ? `${report.items.length} legacy journal notes found for migration.` : "No legacy journal notes found."); }
+  async previewMigration(): Promise<void> { const report = await this.migration.preview(); if (report.items.length) new MigrationPreviewModal(this.app, report).open(); else new Notice("No legacy journal notes found."); }
   confirmMigration(): void { new ConfirmModal(this.app, "Back up recognized legacy journal notes and add Journal Companion metadata?", async () => { await this.migration.migrate(); }).open(); }
   async verifyMigration(): Promise<void> { await this.migration.verify(); }
   confirmRestore(): void { new ConfirmModal(this.app, "Restore the latest journal migration backup over current notes?", () => this.migration.restoreLatest()).open(); }

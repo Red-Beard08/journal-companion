@@ -4,6 +4,7 @@ import { SEASON_FOCUSES_END, SEASON_FOCUSES_START, SEASON_GOALS_END, SEASON_GOAL
 import { ensureFolders, frontmatterForArea, frontmatterForSeason, stableId, today } from "./utils";
 import { safeFilename } from "./foundation-vendor";
 import type JournalCompanion from "./main";
+import type { MigrationReport } from "./migration";
 
 function textValue(input: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement): string { return input.value.trim(); }
 function splitLines(value: string): string[] { return value.split("\n").map(line => line.trim()).filter(Boolean); }
@@ -15,6 +16,19 @@ export class ConfirmModal extends Modal {
     this.contentEl.createEl("h2", { text: "Please confirm" });
     this.contentEl.createEl("p", { text: this.message });
     new Setting(this.contentEl).addButton(button => button.setButtonText("Confirm").setCta().onClick(async () => { await this.confirm(); this.close(); })).addButton(button => button.setButtonText("Cancel").onClick(() => this.close()));
+  }
+}
+
+export class MigrationPreviewModal extends Modal {
+  constructor(app: App, private report: MigrationReport) { super(app); }
+  onOpen(): void {
+    prepareMobileModal(this, "journal-companion-modal");
+    this.contentEl.createEl("h2", { text: "Legacy migration preview" });
+    this.contentEl.createEl("p", { text: `${this.report.items.length} notes recognized under ${this.report.source}. Preview is non-mutating.` });
+    const list = this.contentEl.createEl("ul");
+    this.report.items.slice(0, 200).forEach(item => list.createEl("li", { text: `${item.path}${item.date ? ` · ${item.date}` : " · date not detected"}${item.hasManagedBlock ? " · managed block present" : ""}` }));
+    if (this.report.items.length > 200) this.contentEl.createEl("p", { cls: "journal-companion-muted", text: `Showing first 200 of ${this.report.items.length} records.` });
+    new Setting(this.contentEl).addButton(button => button.setButtonText("Close").onClick(() => this.close()));
   }
 }
 
