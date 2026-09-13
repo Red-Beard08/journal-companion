@@ -39,7 +39,8 @@ export class JournalMigration {
       try {
         const original = await this.app.vault.read(file);
         const backupFile = `${backupPath}/${item.path.replace(/\//g, "__")}`;
-        await this.app.vault.create(backupFile, original);
+        const backup = await this.app.vault.create(backupFile, original);
+        if (await this.app.vault.read(backup) !== original) throw new Error("Backup verification failed; source was not changed.");
         await this.app.fileManager.processFrontMatter(file, fm => {
           const date = String(fm.date ?? parseDateFromFilename(file.basename) ?? today());
           fm.type = DAILY_TYPE; fm.schema_version = 1; fm.journal_id = String(fm.journal_id ?? stableId("JRN", file.path)); fm.date = date;
