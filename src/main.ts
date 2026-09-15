@@ -81,7 +81,7 @@ export default class JournalCompanion extends Plugin {
   private registerDashboardWidget(): void {
     const dashboard = (this.app as unknown as { plugins?: { getPlugin?: (id: string) => unknown } }).plugins?.getPlugin?.("red-beard-dashboard") as { registerWidget?: (definition: JournalWidgetDefinition) => () => void } | undefined;
     if (!dashboard?.registerWidget) return;
-    dashboard.registerWidget({ id: "journal-companion/today", name: "Journal Companion", description: "Today’s journal status and current focuses.", icon: "book-open", defaultLayout: { w: 4, mobileW: 12, h: 3, order: 20 }, mobile: "responsive", render: async (_ctx, container) => { const daily = await this.repository.getDaily(today()); container.createEl("h3", { text: "Journal Companion" }); container.createEl("p", { text: daily ? `Today’s note is ready · ${daily.date}` : "Today’s note has not been created." }); const button = container.createEl("button", { text: daily ? "Open today" : "New Journal Entry" }); button.onclick = () => void this.openToday(true); } });
+    dashboard.registerWidget({ id: "journal-companion/today", name: "Journal Companion", description: "Today’s journal status and current focuses.", icon: "book-open", defaultLayout: { w: 4, mobileW: 12, h: 3, order: 20 }, mobile: "responsive", render: async (_ctx, container) => { const daily = await this.repository.getDaily(today()); container.createEl("p", { text: daily ? `Today’s note is ready · ${daily.date}` : "Today’s note has not been created." }); const button = container.createEl("button", { text: daily ? "Open today" : "New Journal Entry" }); button.onclick = () => void this.openToday(true); } });
   }
 }
 // Red-Beard Dashboard integration: launcher module and independent summary widget.
