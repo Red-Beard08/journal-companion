@@ -1,5 +1,5 @@
 import { Notice, Plugin, TFile } from "obsidian";
-import { registerDashboardModule, registerDashboardWidget } from "./dashboard-bridge";
+import { registerDashboardModule } from "./dashboard-bridge";
 import { JournalDashboardView } from "./dashboard";
 import { JournalMigration } from "./migration";
 import { AreaManagerModal, ConfirmModal, MigrationPreviewModal, SeasonModal } from "./modals";
@@ -89,14 +89,7 @@ const rbDisposals = new WeakMap<object, () => void>();
 const rbOnload = JournalCompanion.prototype.onload;
 JournalCompanion.prototype.onload = async function(this: JournalCompanion) {
   await rbOnload.call(this);
-  const disposals = [
-    registerDashboardModule(this.app, { id: "journal-companion", name: "Journal Companion", command: "journal-companion:open-dashboard", icon: "book-open", description: "Today’s journal status and current focuses.", order: 20 }),
-    registerDashboardWidget(this.app, { id: "journal-companion/overview", name: "Journal Companion", description: "Today’s journal status and current focuses.", icon: "book-open", defaultLayout: { w: 4, mobileW: 12, h: 2, order: 40 }, mobile: "responsive", render: (_ctx, container) => {
-      container.createEl("p", { text: "Today’s journal status and current focuses." });
-      const button = container.createEl("button", { text: "Open Journal Companion" });
-      button.onclick = () => void this.openDashboard();
-    } })
-  ];
+  const disposals = [registerDashboardModule(this.app, { id: "journal-companion", name: "Journal Companion", command: "journal-companion:open-dashboard", icon: "book-open", description: "Today’s journal status and current focuses.", order: 20 })];
   rbDisposals.set(this, () => disposals.forEach(dispose => dispose()));
 };
 const rbOnunload = JournalCompanion.prototype.onunload;
