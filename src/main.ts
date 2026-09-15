@@ -1,4 +1,5 @@
 import { Notice, Plugin, TFile } from "obsidian";
+import { registerDashboardModule, registerDashboardWidget } from "./dashboard-bridge";
 import { JournalDashboardView } from "./dashboard";
 import { JournalMigration } from "./migration";
 import { AreaManagerModal, ConfirmModal, MigrationPreviewModal, SeasonModal } from "./modals";
@@ -83,3 +84,23 @@ export default class JournalCompanion extends Plugin {
     dashboard.registerWidget({ id: "journal-companion/today", name: "Journal Companion", description: "Today’s journal status and current focuses.", icon: "book-open", defaultLayout: { w: 4, mobileW: 12, h: 3, order: 20 }, mobile: "responsive", render: async (_ctx, container) => { const daily = await this.repository.getDaily(today()); container.createEl("h3", { text: "Journal Companion" }); container.createEl("p", { text: daily ? `Today’s note is ready · ${daily.date}` : "Today’s note has not been created." }); const button = container.createEl("button", { text: daily ? "Open today" : "New Journal Entry" }); button.onclick = () => void this.openToday(true); } });
   }
 }
+// Red-Beard Dashboard integration: launcher module and independent summary widget.
+const rbDisposals = new WeakMap<object, () => void>();
+const rbOnload = JournalCompanion.prototype.onload;
+JournalCompanion.prototype.onload = async function(this: JournalCompanion) {
+  await rbOnload.call(this);
+  const disposals = [
+    registerDashboardModule(this.app, { id: "journal-companion", name: "Journal Companion", command: "journal-companion:open-dashboard", icon: "book-open", description: "Today’s journal status and current focuses.", order: 20 }),
+    registerDashboardWidget(this.app, { id: "journal-companion/overview", name: "Journal Companion", description: "Today’s journal status and current focuses.", icon: "book-open", defaultLayout: { w: 4, mobileW: 12, h: 2, order: 40 }, mobile: "responsive", render: (_ctx, container) => {
+      container.createEl("p", { text: "Today’s journal status and current focuses." });
+      const button = container.createEl("button", { text: "Open Journal Companion" });
+      button.onclick = () => void this.openDashboard();
+    } })
+  ];
+  rbDisposals.set(this, () => disposals.forEach(dispose => dispose()));
+};
+const rbOnunload = JournalCompanion.prototype.onunload;
+JournalCompanion.prototype.onunload = async function(this: JournalCompanion) {
+  rbDisposals.get(this)?.();
+ if (rbOnunload) await rbOnunload.call(this);
+};
