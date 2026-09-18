@@ -5,6 +5,7 @@ import { SEASON_FOCUSES_END, SEASON_FOCUSES_START, SEASON_GOALS_END, SEASON_GOAL
 
 function list(value: unknown): string[] { return Array.isArray(value) ? value.map(String).map(item => item.trim()).filter(Boolean) : typeof value === "string" ? value.split(",").map(item => item.trim()).filter(Boolean) : []; }
 function frontmatter(app: App, file: TFile): Record<string, unknown> { return (app.metadataCache.getFileCache(file)?.frontmatter ?? {}) as Record<string, unknown>; }
+function dashboardExcluded(app: App, file: TFile): boolean { const value = frontmatter(app, file).dashboard_exclude; return value === true || String(value ?? "").toLowerCase() === "true"; }
 
 export class JournalRepository implements JournalRepositoryLike {
   constructor(private app: App, private settings: JournalSettings) {}
@@ -14,6 +15,7 @@ export class JournalRepository implements JournalRepositoryLike {
     const target = date ?? new Date().toISOString().slice(0, 10);
     const files = this.markdownFiles(this.settings.folders.daily).concat(this.markdownFiles(this.settings.legacySourceFolder));
     for (const file of [...new Set(files)]) {
+      if (dashboardExcluded(this.app, file)) continue;
       const fm = frontmatter(this.app, file);
       const parsed = String(fm.date ?? parseDateFromFilename(file.basename) ?? "");
       if (parsed !== target || (file.path === this.settings.legacySourceFolder)) continue;
@@ -51,6 +53,7 @@ export class JournalRepository implements JournalRepositoryLike {
     const files = this.markdownFiles(this.settings.folders.daily).concat(this.markdownFiles(this.settings.legacySourceFolder));
     const records: DailyRecord[] = [];
     for (const file of [...new Set(files)]) {
+      if (dashboardExcluded(this.app, file)) continue;
       const fm = frontmatter(this.app, file); const date = String(fm.date ?? parseDateFromFilename(file.basename) ?? "");
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
       const content = await this.app.vault.cachedRead(file); const marker = content.indexOf("\n---\n", 4); const body = marker >= 0 ? content.slice(marker + 5) : content;
