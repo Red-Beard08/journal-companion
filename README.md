@@ -6,7 +6,7 @@ Journal Companion is a mobile-compatible, Markdown-first daily journal for seaso
 
 Install the folder into `.obsidian/plugins/journal-companion`, enable it, then open **Journal Companion settings**. Choose a daily filename format and enable **Setup complete**. The plugin does not create a note just because Obsidian starts unless the startup option is explicitly enabled.
 
-Use **New Journal Entry** to create today’s note, **New season** to define goals and focuses, and **Manage journal areas** to add prompts. The dashboard opens native notes in another tab so your overview remains available.
+Use **New Journal Entry** to create today’s note, **New season** to define goals and focuses, and **Manage journal areas** to add prompts. Journal Companion allows one daily entry per calendar date; repeated dashboard/widget actions open that existing entry instead of creating another. Weekly, monthly, and quarterly reviews are separate records. The dashboard opens native notes in another tab so your overview remains available.
 
 ## Storage and Markdown
 

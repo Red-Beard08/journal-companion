@@ -15,6 +15,7 @@ export default class JournalCompanion extends Plugin {
   selectedSeasonIds: string[] = [];
   private migration!: JournalMigration;
   private refreshTimer?: number;
+  private dailyCreation?: Promise<void>;
 
   async onload(): Promise<void> {
     this.settings = { ...defaultSettings(), ...(await this.loadData() ?? {}) } as JournalSettings;
@@ -63,9 +64,20 @@ export default class JournalCompanion extends Plugin {
     const date = today(); const existing = await this.repository.getDaily(date);
     if (existing) { this.openNote(existing.file.path); return; }
     if (!create) { new Notice("Today's journal note does not exist yet. Use New Journal Entry to create it."); return; }
+    // Keep creation serialized so two taps (or a dashboard plus the widget) cannot race into two notes for one date.
+    if (this.dailyCreation) return this.dailyCreation;
+    this.dailyCreation = this.createTodayIfMissing(date).finally(() => { this.dailyCreation = undefined; });
+    return this.dailyCreation;
+  }
+
+  private async createTodayIfMissing(date: string): Promise<void> {
+    const existing = await this.repository.getDaily(date);
+    if (existing) { this.openNote(existing.file.path); return; }
     await ensureFolders(this.app.vault, [this.settings.folders.daily]);
     const seasons = activeSeasonsFor(await this.repository.getSeasons(), date); const areas = await this.repository.getAreas();
     const path = safeDailyPath(this.settings, date); const id = stableId(this.settings.naming.idPrefix || "JRN", `${date}:${Date.now()}`);
+    const atPath = this.app.vault.getAbstractFileByPath(path);
+    if (atPath instanceof TFile) { this.openNote(atPath.path); return; }
     const body = `# ${date}\n\n${renderDailyManagedBlock(seasons, areas, date)}\n\n## Personal writing\n\n`;
     const file = await this.app.vault.create(path, `${frontmatterForDaily(id, date, this.settings, seasons.map(s => s.id))}${body}`); this.openNote(file.path); await this.refresh();
   }
@@ -81,7 +93,7 @@ export default class JournalCompanion extends Plugin {
   private registerDashboardWidget(): void {
     const dashboard = (this.app as unknown as { plugins?: { getPlugin?: (id: string) => unknown } }).plugins?.getPlugin?.("red-beard-dashboard") as { registerWidget?: (definition: JournalWidgetDefinition) => () => void } | undefined;
     if (!dashboard?.registerWidget) return;
-    dashboard.registerWidget({ id: "journal-companion/today", name: "Journal Companion", description: "Today’s journal status and current focuses.", icon: "book-open", defaultLayout: { w: 4, mobileW: 12, h: 3, order: 20 }, mobile: "responsive", render: async (_ctx, container) => { const daily = await this.repository.getDaily(today()); container.createEl("p", { text: daily ? `Today’s note is ready · ${daily.date}` : "Today’s note has not been created." }); const button = container.createEl("button", { text: daily ? "Open today" : "New Journal Entry" }); button.onclick = () => void this.openToday(true); } });
+    dashboard.registerWidget({ id: "journal-companion/today", name: "Journal Companion", description: "Today’s journal status and current focuses.", icon: "book-open", defaultLayout: { w: 4, mobileW: 12, h: 3, order: 20 }, mobile: "responsive", render: async (_ctx, container) => { const daily = await this.repository.getDaily(today()); container.createEl("strong", { text: daily ? "Today’s journal entry" : "Today’s journal is not created" }); container.createEl("p", { text: daily ? daily.date : "Create one entry for today; weekly and other reviews remain separate." }); const button = container.createEl("button", { text: daily ? "Open today’s journal" : "Create today’s journal" }); button.onclick = () => void this.openToday(true); } });
   }
 }
 // Red-Beard Dashboard integration: launcher module and independent summary widget.
