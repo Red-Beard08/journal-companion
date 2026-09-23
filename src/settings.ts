@@ -38,8 +38,7 @@ export class JournalSettingsTab extends PluginSettingTab {
     new Setting(el).setName("Prayer Library integration").setHeading();
     new Setting(el).setName("Enable prayer widget").addToggle(toggle => toggle.setValue(this.plugin.settings.prayer.enabled).onChange(async value => { this.plugin.settings.prayer.enabled = value; await this.plugin.saveSettings(); }));
     new Setting(el).setName("Prayer Library plugin ID").addText(text => text.setValue(this.plugin.settings.prayer.pluginId).onChange(async value => { this.plugin.settings.prayer.pluginId = value.trim() || "prayer-library"; await this.plugin.saveSettings(); }));
-    new Setting(el).setName("Prayer categories").setDesc("Comma-separated categories; blank uses the Prayer Library daily selection.").addText(text => text.setValue(this.plugin.settings.prayer.categories.join(", ")).onChange(async value => { this.plugin.settings.prayer.categories = value.split(",").map(item => item.trim()).filter(Boolean); await this.plugin.saveSettings(); }));
-    new Setting(el).setName("Prayers per day").addText(text => text.setValue(String(this.plugin.settings.prayer.dailyCount)).onChange(async value => { this.plugin.settings.prayer.dailyCount = Math.max(0, Math.min(50, Number(value) || 0)); await this.plugin.saveSettings(); }));
+    new Setting(el).setName("Daily prayer selection").setDesc("Prayer Library controls categories, schedules, rotation counts, and the final list. Journal Companion mirrors that list exactly for today’s journal and dashboard.");
     new Setting(el).setName("Show Scripture references").addToggle(toggle => toggle.setValue(this.plugin.settings.prayer.showScripture).onChange(async value => { this.plugin.settings.prayer.showScripture = value; await this.plugin.saveSettings(); }));
 
     new Setting(el).setName("Automation").setHeading();
