@@ -18,7 +18,9 @@ Seasons can overlap. Goals support daily, weekly, monthly, quarterly, or selecte
 
 ## Prayer Library
 
-When Prayer Library exposes its public bridge, the dashboard can show configured daily prayers and mark them prayed. If the bridge or plugin is unavailable, the prayer card is hidden. No duplicate prayer history is created and no network access is required by Journal Companion.
+When Prayer Library exposes its public bridge, creating (or opening today through the dashboard) adds a `Prayers for today` section inside the managed daily block. Each item is a normal Markdown checkbox with a wikilink, category, optional Scripture, and a small `journal-prayer:<id>` marker used only to synchronize the checkbox with Prayer Library. The title and text remain easy to read and edit in source mode. Checking an item in the note records it as prayed; dashboard and widget buttons update the same checkbox and prayer history.
+
+If the bridge or plugin is unavailable, the prayer section is omitted and the rest of the journal remains fully usable. No duplicate prayer history is created and no network access is required by Journal Companion. The bridge uses `getDailyPrayers(date, categories)`, `markPrayed(prayerId, date)`, and `openPrayer(prayerId)`; it is optional and does not make Prayer Library a runtime dependency.
 
 ## Migration
 

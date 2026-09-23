@@ -1,5 +1,5 @@
 import type { App, TFile, Vault } from "obsidian";
-import { DAILY_TYPE, AREA_TYPE, SEASON_TYPE, type AreaRecord, type DailyRecord, type GoalDefinition, type JournalRepositoryLike, type JournalSettings, type PrayerLibraryBridge, type SeasonRecord, type FocusDefinition } from "./types";
+import { DAILY_TYPE, AREA_TYPE, SEASON_TYPE, type AreaRecord, type DailyRecord, type GoalDefinition, type JournalRepositoryLike, type JournalSettings, type PrayerLibraryBridge, type PrayerSummary, type SeasonRecord, type FocusDefinition } from "./types";
 import { activeSeasonsFor, parseDateFromFilename, parseJsonBlock, stableId } from "./utils";
 import { SEASON_FOCUSES_END, SEASON_FOCUSES_START, SEASON_GOALS_END, SEASON_GOALS_START } from "./types";
 
@@ -79,13 +79,28 @@ export class JournalRepository implements JournalRepositoryLike {
     if (!this.settings.prayer.enabled) return null;
     const plugin = (this.app as App & { plugins?: { getPlugin?: (id: string) => unknown } }).plugins?.getPlugin?.(this.settings.prayer.pluginId) as (Partial<PrayerLibraryBridge> & { getPrayers?: () => Array<{ id: string; title: string; text: string; category: string; scripture?: string[]; prayed?: string[]; file?: TFile }>; markPrayed?: (prayer: unknown, date: string) => Promise<void> }) | undefined;
     if (!plugin) return null;
-    if (typeof plugin.getDailyPrayers === "function" && typeof plugin.markPrayed === "function" && typeof plugin.openPrayer === "function") return plugin as PrayerLibraryBridge;
+    if (typeof plugin.getDailyPrayers === "function" && typeof plugin.markPrayed === "function" && typeof plugin.openPrayer === "function") return {
+      getDailyPrayers: async (date, categories) => (await plugin.getDailyPrayers!(date, categories)).map(item => ({ ...item, path: item.path })),
+      markPrayed: async (prayerId, date) => { const prayer = plugin.getPrayers?.().find(item => item.id === prayerId); if (prayer) await plugin.markPrayed!(prayer, date); },
+      openPrayer: prayerId => plugin.openPrayer!(prayerId),
+    };
     if (typeof plugin.getPrayers !== "function" || typeof plugin.markPrayed !== "function") return null;
     return {
-      getDailyPrayers: async (date, categories) => plugin.getPrayers!().filter(prayer => !categories.length || categories.some(category => category.toLowerCase() === prayer.category.toLowerCase())).map(prayer => ({ id: prayer.id, title: prayer.title, text: prayer.text, category: prayer.category, scripture: prayer.scripture, prayed: prayer.prayed?.includes(date) ?? false })),
+      getDailyPrayers: async (date, categories) => plugin.getPrayers!().filter(prayer => !categories.length || categories.some(category => category.toLowerCase() === prayer.category.toLowerCase())).map(prayer => ({ id: prayer.id, title: prayer.title, text: prayer.text, category: prayer.category, scripture: prayer.scripture, prayed: prayer.prayed?.includes(date) ?? false, path: prayer.file?.path })),
       markPrayed: async (prayerId, date) => { const prayer = plugin.getPrayers!().find(item => item.id === prayerId); if (prayer) await plugin.markPrayed!(prayer, date); },
       openPrayer: prayerId => { const prayer = plugin.getPrayers!().find(item => item.id === prayerId); if (prayer?.file) void this.app.workspace.getLeaf(true).openFile(prayer.file); },
     };
+  }
+
+  async getDailyPrayers(date = new Date().toISOString().slice(0, 10)): Promise<PrayerSummary[]> {
+    const bridge = this.getPrayerBridge();
+    if (!bridge) return [];
+    try { return (await bridge.getDailyPrayers(date, this.settings.prayer.categories)).slice(0, this.settings.prayer.dailyCount); } catch { return []; }
+  }
+
+  async markPrayerPrayed(prayerId: string, date = new Date().toISOString().slice(0, 10)): Promise<void> {
+    const bridge = this.getPrayerBridge();
+    if (bridge) await bridge.markPrayed(prayerId, date);
   }
 }
 

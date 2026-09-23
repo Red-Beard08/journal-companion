@@ -44,6 +44,9 @@ export default class JournalCompanion extends Plugin {
       ["open-settings", "Open Journal Companion settings", () => this.openSettings()],
     ];
     commands.forEach(([id, name, callback]) => this.addCommand({ id, name, callback }));
+    this.registerEvent(this.app.vault.on("modify", file => {
+      if (file instanceof TFile && this.isDailyFile(file)) void this.syncCheckedPrayers(file);
+    }));
     this.registerDashboardWidget();
     if (this.settings.dashboard.autoRefreshSeconds > 0) this.refreshTimer = window.setInterval(() => void this.refresh(), this.settings.dashboard.autoRefreshSeconds * 1000);
     if (this.settings.createOnStartup && this.settings.setupComplete) void this.openToday(true);
@@ -62,7 +65,7 @@ export default class JournalCompanion extends Plugin {
   async openToday(create: boolean): Promise<void> {
     if (!this.settings.setupComplete) { new Notice("Choose and confirm a daily filename format in Journal Companion settings first."); this.openSettings(); return; }
     const date = today(); const existing = await this.repository.getDaily(date);
-    if (existing) { this.openNote(existing.file.path); return; }
+    if (existing) { if (create && this.repository.getPrayerBridge()) await this.refreshDailyFile(existing.file, date); this.openNote(existing.file.path); return; }
     if (!create) { new Notice("Today's journal note does not exist yet. Use New Journal Entry to create it."); return; }
     // Keep creation serialized so two taps (or a dashboard plus the widget) cannot race into two notes for one date.
     if (this.dailyCreation) return this.dailyCreation;
@@ -74,15 +77,36 @@ export default class JournalCompanion extends Plugin {
     const existing = await this.repository.getDaily(date);
     if (existing) { this.openNote(existing.file.path); return; }
     await ensureFolders(this.app.vault, [this.settings.folders.daily]);
-    const seasons = activeSeasonsFor(await this.repository.getSeasons(), date); const areas = await this.repository.getAreas();
+    const seasons = activeSeasonsFor(await this.repository.getSeasons(), date); const areas = await this.repository.getAreas(); const prayers = this.repository.getPrayerBridge() ? await this.repository.getDailyPrayers(date) : undefined;
     const path = safeDailyPath(this.settings, date); const id = stableId(this.settings.naming.idPrefix || "JRN", `${date}:${Date.now()}`);
     const atPath = this.app.vault.getAbstractFileByPath(path);
     if (atPath instanceof TFile) { this.openNote(atPath.path); return; }
-    const body = `# ${date}\n\n${renderDailyManagedBlock(seasons, areas, date)}\n\n## Personal writing\n\n`;
+    const body = `# ${date}\n\n${renderDailyManagedBlock(seasons, areas, date, "", prayers)}\n\n## Personal writing\n\n`;
     const file = await this.app.vault.create(path, `${frontmatterForDaily(id, date, this.settings, seasons.map(s => s.id))}${body}`); this.openNote(file.path); await this.refresh();
   }
 
   async refresh(): Promise<void> { this.repository = new JournalRepository(this.app, this.settings); for (const leaf of this.app.workspace.getLeavesOfType(VIEW_ID)) { const view = leaf.view as JournalDashboardView; await view.render(); } }
+  async markPrayerPrayed(prayerId: string, date = today()): Promise<void> {
+    await this.repository.markPrayerPrayed(prayerId, date);
+    const daily = await this.repository.getDaily(date);
+    if (!daily) return;
+    await this.app.vault.process(daily.file, content => content.split("\n").map(line => line.includes(`journal-prayer:${prayerId}`) ? line.replace("- [ ]", "- [x]") : line).join("\n"));
+  }
+  private isDailyFile(file: TFile): boolean { return file.path.startsWith(`${this.settings.folders.daily}/`); }
+  private async refreshDailyFile(file: TFile, date: string): Promise<void> {
+    const seasons = activeSeasonsFor(await this.repository.getSeasons(), date); const areas = await this.repository.getAreas(); const prayers = this.repository.getPrayerBridge() ? await this.repository.getDailyPrayers(date) : undefined;
+    await this.app.vault.process(file, current => {
+      const marker = current.indexOf("\n---\n", 4); const head = marker >= 0 ? current.slice(0, marker + 5) : ""; const body = marker >= 0 ? current.slice(marker + 5) : current;
+      const nextBody = renderDailyManagedBlock(seasons, areas, date, body, prayers);
+      return nextBody === body ? current : `${head}${nextBody}${nextBody.endsWith("\n") ? "" : "\n"}`;
+    });
+  }
+  private async syncCheckedPrayers(file: TFile): Promise<void> {
+    const bridge = this.repository.getPrayerBridge(); if (!bridge) return;
+    const content = await this.app.vault.cachedRead(file); const date = String(this.app.metadataCache.getFileCache(file)?.frontmatter?.date ?? ""); if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    const ids = [...content.matchAll(/- \[[xX]\][^\n]*journal-prayer:([^\s]+)\s*-->/g)].map(match => match[1]);
+    for (const id of [...new Set(ids)]) { try { await bridge.markPrayed(id, date); } catch { /* prayer records may be unavailable during plugin reload */ } }
+  }
   async openReview(cadence: "weekly" | "monthly" | "quarterly"): Promise<void> { await ensureFolders(this.app.vault, [this.settings.folders.reviews]); const date = today(); const path = `${this.settings.folders.reviews}/${safeFilename(`${cadence}-${date}`)}.md`; const existing = this.app.vault.getAbstractFileByPath(path); if (existing instanceof TFile) { this.openNote(path); return; } const title = `${cadence[0].toUpperCase()}${cadence.slice(1)} review — ${date}`; const file = await this.app.vault.create(path, `---\ntype: journal-companion-review\ncadence: ${cadence}\ndate: ${date}\ncreated: ${new Date().toISOString()}\nupdated: ${new Date().toISOString()}\n---\n\n# ${title}\n\n## Wins\n\n- \n\n## What needs attention\n\n- \n\n## Next steps\n\n- \n`); this.openNote(file.path); }
 
   async previewMigration(): Promise<void> { const report = await this.migration.preview(); if (report.items.length) new MigrationPreviewModal(this.app, report).open(); else new Notice("No legacy journal notes found."); }

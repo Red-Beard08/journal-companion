@@ -105,9 +105,11 @@ export interface JournalRepositoryLike {
   getRecent(limit: number): Promise<DailyRecord[]>;
   getGoalStats(seasonIds: string[], days: number): Promise<{ total: number; complete: number; streak: number; due: number }>;
   getPrayerBridge(): PrayerLibraryBridge | null;
+  getDailyPrayers(date?: string): Promise<PrayerSummary[]>;
+  markPrayerPrayed(prayerId: string, date?: string): Promise<void>;
 }
 
-export interface PrayerSummary { id: string; title: string; text: string; category: string; scripture?: string[]; prayed: boolean; }
+export interface PrayerSummary { id: string; title: string; text: string; category: string; scripture?: string[]; prayed: boolean; path?: string; }
 export interface PrayerLibraryBridge {
   getDailyPrayers(date: string, categories: string[]): Promise<PrayerSummary[]>;
   markPrayed(prayerId: string, date: string): Promise<void>;

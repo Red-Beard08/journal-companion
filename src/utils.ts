@@ -1,6 +1,6 @@
 import type { TFile, Vault } from "obsidian";
 import { replaceManagedBlock, normalizeVaultFile, normalizeVaultFolder, safeFilename } from "./foundation-vendor";
-import { DAILY_END, DAILY_START, type GoalDefinition, type JournalSettings, type SeasonRecord } from "./types";
+import { DAILY_END, DAILY_START, type GoalDefinition, type JournalSettings, type PrayerSummary, type SeasonRecord } from "./types";
 
 export const STARTER_AREAS = [
   ["Gratitude", "What can I receive with thankfulness today?"],
@@ -126,7 +126,16 @@ export function parseJsonBlock<T>(text: string, start: string, end: string, fall
   try { return JSON.parse(text.slice(a + start.length, b).trim()) as T; } catch { return fallback; }
 }
 
-export function renderDailyManagedBlock(seasons: SeasonRecord[], areas: import("./types").AreaRecord[], date: string, existing = ""): string {
+function prayerWasChecked(existing: string, id: string): boolean {
+  const line = existing.split("\n").find(item => item.includes(`journal-prayer:${id}`));
+  return !!line && /- \[[xX]\]/.test(line);
+}
+
+function renderPrayerText(text: string): string[] {
+  return text.trim() ? text.trim().split("\n").map(line => `  > ${line.trim()}`) : [];
+}
+
+export function renderDailyManagedBlock(seasons: SeasonRecord[], areas: import("./types").AreaRecord[], date: string, existing = "", prayers?: PrayerSummary[]): string {
   const lines: string[] = ["## Today", "", `Date: ${date}`, ""];
   const dueGoals = seasons.flatMap(season => season.goals.filter(goal => isDue(goal, date)).map(goal => ({ season, goal })));
   if (dueGoals.length) {
@@ -140,6 +149,14 @@ export function renderDailyManagedBlock(seasons: SeasonRecord[], areas: import("
   }
   const focuses = seasons.flatMap(season => season.focuses.filter(focus => focus.active && (!focus.startDate || focus.startDate <= date) && (!focus.endDate || focus.endDate >= date)).map(focus => ({ season, focus })));
   if (focuses.length) { lines.push("### Focuses", "", ...focuses.map(item => `- ${item.focus.text} — *${item.season.name}*`), ""); }
+  if (prayers !== undefined) {
+    lines.push("### Prayers for today", "", prayers.length ? "Work through each prayer and check it off as you pray." : "_No prayers are scheduled for today._", "");
+    for (const prayer of prayers) {
+      const checked = prayer.prayed || prayerWasChecked(existing, prayer.id);
+      const title = prayer.path ? `[[${prayer.path}|${prayer.title}]]` : `**${prayer.title}**`;
+      lines.push(`- [${checked ? "x" : " "}] ${title} — *${prayer.category}* <!-- journal-prayer:${prayer.id} -->`, ...renderPrayerText(prayer.text), ...(prayer.scripture?.length ? [`  - Scripture: ${prayer.scripture.join(" · ")}`] : []), "");
+    }
+  }
   if (areas.length) { lines.push("### Journal prompts", "", ...areas.filter(area => area.status === "active").sort((a, b) => a.order - b.order).map(area => `#### ${area.name}\n\n${area.prompt || ""}\n\nResponse: \n`)); }
   return replaceManagedBlock(existing, { start: DAILY_START, end: DAILY_END }, lines.join("\n"));
 }
