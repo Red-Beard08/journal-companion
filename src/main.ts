@@ -65,7 +65,7 @@ export default class JournalCompanion extends Plugin {
   async openToday(create: boolean): Promise<void> {
     if (!this.settings.setupComplete) { new Notice("Choose and confirm a daily filename format in Journal Companion settings first."); this.openSettings(); return; }
     const date = today(); const existing = await this.repository.getDaily(date);
-    if (existing) { if (create && this.repository.getPrayerBridge()) await this.refreshDailyFile(existing.file, date); this.openNote(existing.file.path); return; }
+    if (existing) { if (this.repository.getPrayerBridge()) await this.refreshDailyFile(existing.file, date); this.openNote(existing.file.path); return; }
     if (!create) { new Notice("Today's journal note does not exist yet. Use New Journal Entry to create it."); return; }
     // Keep creation serialized so two taps (or a dashboard plus the widget) cannot race into two notes for one date.
     if (this.dailyCreation) return this.dailyCreation;
