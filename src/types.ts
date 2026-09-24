@@ -103,10 +103,35 @@ export interface JournalRepositoryLike {
   getSeasons(): Promise<SeasonRecord[]>;
   getAreas(): Promise<AreaRecord[]>;
   getRecent(limit: number): Promise<DailyRecord[]>;
-  getGoalStats(seasonIds: string[], days: number): Promise<{ total: number; complete: number; streak: number; due: number }>;
+  getGoalStats(seasonIds: string[], days: number, seasonToDate?: boolean): Promise<GoalProgress>;
   getPrayerBridge(): PrayerLibraryBridge | null;
   getDailyPrayers(date?: string): Promise<PrayerSummary[]>;
   markPrayerPrayed(prayerId: string, date?: string): Promise<void>;
+}
+
+export interface GoalProgressSeason {
+  id: string;
+  name: string;
+  total: number;
+  complete: number;
+  due: number;
+  percent: number;
+  activeGoals: number;
+  fromDate?: string;
+  toDate?: string;
+}
+
+export interface GoalProgress {
+  total: number;
+  complete: number;
+  streak: number;
+  due: number;
+  percent: number;
+  activeGoals: number;
+  elapsedDays: number;
+  fromDate?: string;
+  toDate?: string;
+  seasons: GoalProgressSeason[];
 }
 
 export interface PrayerSummary { id: string; title: string; text: string; category: string; scripture?: string[]; prayed: boolean; path?: string; }

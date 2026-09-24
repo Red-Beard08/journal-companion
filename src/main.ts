@@ -6,7 +6,7 @@ import { AreaManagerModal, ConfirmModal, MigrationPreviewModal, SeasonModal } fr
 import { JournalRepository } from "./repository";
 import { JournalSettingsTab } from "./settings";
 import { PLUGIN_ID, VIEW_ID, type JournalSettings, type JournalWidgetDefinition, type SeasonRecord } from "./types";
-import { activeSeasonsFor, defaultSettings, ensureFolders, frontmatterForDaily, normalizeSettings, renderDailyManagedBlock, safeDailyPath, stableId, today } from "./utils";
+import { activeSeasonsFor, defaultSettings, ensureFolders, frontmatterForDaily, normalizeSettings, parseDateFromFilename, renderDailyManagedBlock, safeDailyPath, stableId, today } from "./utils";
 import { safeFilename } from "./foundation-vendor";
 
 export default class JournalCompanion extends Plugin {
@@ -103,7 +103,11 @@ export default class JournalCompanion extends Plugin {
   }
   private async syncCheckedPrayers(file: TFile): Promise<void> {
     const bridge = this.repository.getPrayerBridge(); if (!bridge) return;
-    const content = await this.app.vault.cachedRead(file); const date = String(this.app.metadataCache.getFileCache(file)?.frontmatter?.date ?? ""); if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    const content = await this.app.vault.cachedRead(file);
+    const cachedDate = String(this.app.metadataCache.getFileCache(file)?.frontmatter?.date ?? "");
+    const embeddedDate = /^date:\s*["']?(\d{4}-\d{2}-\d{2})/m.exec(content)?.[1] ?? "";
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(cachedDate) ? cachedDate : embeddedDate || parseDateFromFilename(file.basename) || "";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
     const ids = [...content.matchAll(/- \[[xX]\][^\n]*journal-prayer:([^\s]+)\s*-->/g)].map(match => match[1]);
     for (const id of [...new Set(ids)]) { try { await bridge.markPrayed(id, date); } catch { /* prayer records may be unavailable during plugin reload */ } }
   }

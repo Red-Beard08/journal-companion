@@ -1,4 +1,5 @@
-.journal-companion-dashboard { max-width: 1180px; margin: 0 auto; padding: 28px 24px 56px; color: var(--text-normal); }
+.workspace-leaf-content[data-type="journal-companion-dashboard"], .workspace-leaf-content[data-type="journal-companion-dashboard"] .view-content { overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.journal-companion-dashboard { max-width: 1180px; min-height: 100%; height: auto; box-sizing: border-box; margin: 0 auto; padding: 28px 24px calc(96px + env(safe-area-inset-bottom)); color: var(--text-normal); }
 .journal-companion-hero { padding: 28px; border: 1px solid var(--background-modifier-border); border-radius: 18px; background: linear-gradient(135deg, var(--background-secondary), var(--background-primary)); margin-bottom: 20px; }
 .journal-companion-kicker, .journal-companion-eyebrow { color: var(--interactive-accent); font-size: .75rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 .journal-companion-hero h1 { font-size: clamp(2rem, 6vw, 3.8rem); margin: 8px 0; }
@@ -17,7 +18,8 @@
 .journal-companion-check { display: inline-flex; align-items: center; gap: 8px; margin: 4px 12px 4px 0; }
 .journal-companion-progress { height: 12px; border-radius: 999px; background: var(--background-modifier-border); overflow: hidden; }
 .journal-companion-progress-fill { height: 100%; border-radius: inherit; background: var(--interactive-accent); transition: width .2s ease; }
+.journal-companion-season-progress { margin: 0; font-size: .9rem; }
 .journal-companion-prayer { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .rb-addon-modal-content { max-height: min(88vh, 900px); overflow-y: auto; overscroll-behavior: contain; padding: 18px 20px calc(32px + env(safe-area-inset-bottom)); }
 .journal-companion-modal .setting-item { flex-wrap: wrap; }
-@media (max-width: 700px) { .journal-companion-dashboard { padding: 16px 12px calc(40px + env(safe-area-inset-bottom)); } .journal-companion-hero { padding: 20px; } .journal-companion-metrics, .journal-companion-grid { grid-template-columns: 1fr; } .journal-companion-actions button { flex: 1 1 140px; } }
+@media (max-width: 700px) { .journal-companion-dashboard { padding: 16px 12px calc(120px + env(safe-area-inset-bottom)); } .journal-companion-hero { padding: 20px; } .journal-companion-metrics, .journal-companion-grid { grid-template-columns: 1fr; } .journal-companion-actions button { flex: 1 1 140px; } }

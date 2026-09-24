@@ -1,6 +1,6 @@
 import type { App, TFile, Vault } from "obsidian";
 import { DAILY_TYPE, AREA_TYPE, SEASON_TYPE, type AreaRecord, type DailyRecord, type GoalDefinition, type JournalRepositoryLike, type JournalSettings, type PrayerLibraryBridge, type PrayerSummary, type SeasonRecord, type FocusDefinition } from "./types";
-import { activeSeasonsFor, parseDateFromFilename, parseJsonBlock, stableId } from "./utils";
+import { activeSeasonsFor, isDue, parseDateFromFilename, parseJsonBlock, stableId } from "./utils";
 import { SEASON_FOCUSES_END, SEASON_FOCUSES_START, SEASON_GOALS_END, SEASON_GOALS_START } from "./types";
 
 function list(value: unknown): string[] { return Array.isArray(value) ? value.map(String).map(item => item.trim()).filter(Boolean) : typeof value === "string" ? value.split(",").map(item => item.trim()).filter(Boolean) : []; }
@@ -49,7 +49,7 @@ export class JournalRepository implements JournalRepositoryLike {
     return result.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
   }
 
-  async getRecent(limit: number): Promise<DailyRecord[]> {
+  private async getAllDaily(): Promise<DailyRecord[]> {
     const files = this.markdownFiles(this.settings.folders.daily).concat(this.markdownFiles(this.settings.legacySourceFolder));
     const records: DailyRecord[] = [];
     for (const file of [...new Set(files)]) {
@@ -59,29 +59,72 @@ export class JournalRepository implements JournalRepositoryLike {
       const content = await this.app.vault.cachedRead(file); const marker = content.indexOf("\n---\n", 4); const body = marker >= 0 ? content.slice(marker + 5) : content;
       records.push({ file, id: String(fm.journal_id ?? fm.id ?? stableId("JRN", file.path)), date, seasonIds: list(fm.seasons), legacy: fm.type !== DAILY_TYPE, content, managedContent: body });
     }
-    return records.sort((a, b) => b.date.localeCompare(a.date) || b.file.stat.mtime - a.file.stat.mtime).slice(0, limit);
+    return records.sort((a, b) => b.date.localeCompare(a.date) || b.file.stat.mtime - a.file.stat.mtime);
   }
 
-  async getGoalStats(seasonIds: string[], days: number): Promise<{ total: number; complete: number; streak: number; due: number }> {
-    const seasons = (await this.getSeasons()).filter(season => seasonIds.length === 0 || seasonIds.includes(season.id));
-    const records = await this.getRecent(Math.max(days, 1)); let total = 0; let complete = 0; let due = 0; let streak = 0;
-    for (const record of records) {
-      const dueGoals = seasons.flatMap(season => season.goals.filter(goal => goal.active).filter(goal => goal.recurrence === "daily" || goal.recurrence === "weekdays").map(goal => goal.id));
-      const lines = record.managedContent.split("\n"); const ids = lines.filter(line => /- \[[ xX]\]/.test(line)).map(line => /journal-goal:([^\s>]+)/.exec(line)?.[1]).filter(Boolean) as string[];
-      total += dueGoals.length; due += dueGoals.length; complete += lines.filter(line => /- \[[xX]\]/.test(line)).length;
-      if (record.date === new Date().toISOString().slice(0, 10) && dueGoals.length && dueGoals.every(id => lines.some(line => line.includes(`journal-goal:${id}`) && /- \[[xX]\]/.test(line)))) streak = 1;
-      void ids;
+  async getRecent(limit: number): Promise<DailyRecord[]> {
+    return (await this.getAllDaily()).slice(0, Math.max(limit, 0));
+  }
+
+  async getGoalStats(seasonIds: string[], days: number, seasonToDate = false): Promise<import("./types").GoalProgress> {
+    const allSeasons = await this.getSeasons();
+    const seasons = allSeasons.filter(season => seasonIds.length === 0 || seasonIds.includes(season.id));
+    const records = await this.getAllDaily();
+    const byDate = new Map(records.map(record => [record.date, record]));
+    const today = new Date();
+    const todayIso = today.toISOString().slice(0, 10);
+    const rangeStart = new Date(today);
+    rangeStart.setDate(rangeStart.getDate() - Math.max(days, 1) + 1);
+    const iso = (value: Date): string => value.toISOString().slice(0, 10);
+    const dateValue = (value: string | undefined, fallback: string): string => /^\d{4}-\d{2}-\d{2}$/.test(value ?? "") ? value as string : fallback;
+    const maxDate = (a: string, b: string): string => a > b ? a : b;
+    const minDate = (a: string, b: string): string => a < b ? a : b;
+    const selectedStarts = seasons.map(season => season.startDate).filter((value): value is string => /^\d{4}-\d{2}-\d{2}$/.test(value ?? ""));
+    const globalFrom = seasonToDate && selectedStarts.length ? selectedStarts.sort()[0] : iso(rangeStart);
+    const globalTo = seasons.length ? seasons.map(season => dateValue(season.endDate, todayIso)).sort()[seasons.length - 1] > todayIso ? todayIso : minDate(todayIso, seasons.map(season => dateValue(season.endDate, todayIso)).sort()[seasons.length - 1]) : todayIso;
+    const isChecked = (record: DailyRecord | undefined, goalId: string): boolean => !!record?.managedContent.split("\n").some(line => line.includes(`journal-goal:${goalId}`) && /- \[[xX]\]/.test(line));
+    const daysBetween = (from: string, to: string): number => {
+      const start = new Date(`${from}T12:00:00`); const end = new Date(`${to}T12:00:00`);
+      return start > end ? 0 : Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+    };
+    let total = 0; let complete = 0; let activeGoals = 0;
+    const seasonStats: import("./types").GoalProgressSeason[] = [];
+    for (const season of seasons) {
+      const from = maxDate(globalFrom, dateValue(season.startDate, globalFrom));
+      const to = minDate(globalTo, dateValue(season.endDate, globalTo));
+      const goals = season.goals.filter(goal => goal.active);
+      let seasonTotal = 0; let seasonComplete = 0;
+      activeGoals += goals.length;
+      for (let cursor = new Date(`${from}T12:00:00`); iso(cursor) <= to; cursor.setDate(cursor.getDate() + 1)) {
+        const date = iso(cursor); const record = byDate.get(date);
+        for (const goal of goals) {
+          if (!isDue(goal, date)) continue;
+          seasonTotal += 1;
+          if (isChecked(record, goal.id)) seasonComplete += 1;
+        }
+      }
+      total += seasonTotal; complete += seasonComplete;
+      seasonStats.push({ id: season.id, name: season.name, total: seasonTotal, complete: seasonComplete, due: Math.max(0, seasonTotal - seasonComplete), percent: seasonTotal ? Math.round(seasonComplete / seasonTotal * 100) : 0, activeGoals: goals.length, fromDate: from, toDate: to });
     }
-    return { total, complete: Math.min(complete, total), streak, due };
+    let streak = 0;
+    if (seasons.length) {
+      for (let cursor = new Date(`${todayIso}T12:00:00`); iso(cursor) >= globalFrom; cursor.setDate(cursor.getDate() - 1)) {
+        const date = iso(cursor); const dueGoals = seasons.flatMap(season => season.goals.filter(goal => isDue(goal, date)));
+        if (!dueGoals.length) continue;
+        if (!dueGoals.every(goal => isChecked(byDate.get(date), goal.id))) break;
+        streak += 1;
+      }
+    }
+    return { total, complete, streak, due: Math.max(0, total - complete), percent: total ? Math.round(complete / total * 100) : 0, activeGoals, elapsedDays: daysBetween(globalFrom, globalTo), fromDate: seasons.length ? globalFrom : undefined, toDate: seasons.length ? globalTo : undefined, seasons: seasonStats };
   }
 
   getPrayerBridge(): PrayerLibraryBridge | null {
     if (!this.settings.prayer.enabled) return null;
-    const plugin = (this.app as App & { plugins?: { getPlugin?: (id: string) => unknown } }).plugins?.getPlugin?.(this.settings.prayer.pluginId) as (Partial<PrayerLibraryBridge> & { getPrayers?: () => Array<{ id: string; title: string; text: string; category: string; scripture?: string[]; prayed?: string[]; file?: TFile }>; markPrayed?: (prayer: unknown, date: string) => Promise<void> }) | undefined;
+    const plugin = (this.app as App & { plugins?: { getPlugin?: (id: string) => unknown } }).plugins?.getPlugin?.(this.settings.prayer.pluginId) as (Partial<PrayerLibraryBridge> & { getPrayers?: () => Array<{ id: string; title: string; text: string; category: string; scripture?: string[]; prayed?: string[]; file?: TFile }>; markPrayed?: (prayer: unknown, date: string) => Promise<void>; markPrayedById?: (prayerId: string, date: string) => Promise<void> }) | undefined;
     if (!plugin || typeof plugin.getDailyPrayers !== "function" || typeof plugin.markPrayed !== "function" || typeof plugin.openPrayer !== "function") return null;
     return {
       getDailyPrayers: async (date, categories) => (await plugin.getDailyPrayers!(date, categories)).map(item => ({ ...item, path: item.path })),
-      markPrayed: async (prayerId, date) => { const prayer = plugin.getPrayers?.().find(item => item.id === prayerId); if (prayer) await plugin.markPrayed!(prayer, date); },
+      markPrayed: async (prayerId, date) => { if (plugin.markPrayedById) { await plugin.markPrayedById(prayerId, date); return; } const prayer = plugin.getPrayers?.().find(item => item.id === prayerId); if (prayer) await plugin.markPrayed!(prayer, date); },
       openPrayer: prayerId => plugin.openPrayer!(prayerId),
     };
   }
