@@ -1,6 +1,7 @@
 import type { App, TFile, Vault } from "obsidian";
 import { DAILY_TYPE, AREA_TYPE, SEASON_TYPE, type AreaRecord, type DailyRecord, type GoalDefinition, type JournalRepositoryLike, type JournalSettings, type PrayerLibraryBridge, type PrayerSummary, type SeasonRecord, type FocusDefinition } from "./types";
-import { activeSeasonsFor, isDue, parseDateFromFilename, parseJsonBlock, stableId } from "./utils";
+import { activeSeasonsFor, isDue, parseDateFromFilename, parseJsonBlock, stableId, today } from "./utils";
+import { localDateKey } from "./date-utils";
 import { SEASON_FOCUSES_END, SEASON_FOCUSES_START, SEASON_GOALS_END, SEASON_GOALS_START } from "./types";
 
 function list(value: unknown): string[] { return Array.isArray(value) ? value.map(String).map(item => item.trim()).filter(Boolean) : typeof value === "string" ? value.split(",").map(item => item.trim()).filter(Boolean) : []; }
@@ -12,7 +13,7 @@ export class JournalRepository implements JournalRepositoryLike {
   private markdownFiles(prefix?: string): TFile[] { return this.app.vault.getMarkdownFiles().filter(file => !prefix || file.path === prefix || file.path.startsWith(`${prefix}/`)); }
 
   async getDaily(date?: string): Promise<DailyRecord | null> {
-    const target = date ?? new Date().toISOString().slice(0, 10);
+    const target = date ?? today();
     const files = this.markdownFiles(this.settings.folders.daily).concat(this.markdownFiles(this.settings.legacySourceFolder));
     for (const file of [...new Set(files)]) {
       if (dashboardExcluded(this.app, file)) continue;
@@ -72,10 +73,10 @@ export class JournalRepository implements JournalRepositoryLike {
     const records = await this.getAllDaily();
     const byDate = new Map(records.map(record => [record.date, record]));
     const today = new Date();
-    const todayIso = today.toISOString().slice(0, 10);
+    const todayIso = localDateKey(today);
     const rangeStart = new Date(today);
     rangeStart.setDate(rangeStart.getDate() - Math.max(days, 1) + 1);
-    const iso = (value: Date): string => value.toISOString().slice(0, 10);
+    const iso = (value: Date): string => localDateKey(value);
     const dateValue = (value: string | undefined, fallback: string): string => /^\d{4}-\d{2}-\d{2}$/.test(value ?? "") ? value as string : fallback;
     const maxDate = (a: string, b: string): string => a > b ? a : b;
     const minDate = (a: string, b: string): string => a < b ? a : b;
@@ -84,8 +85,9 @@ export class JournalRepository implements JournalRepositoryLike {
     const globalTo = seasons.length ? seasons.map(season => dateValue(season.endDate, todayIso)).sort()[seasons.length - 1] > todayIso ? todayIso : minDate(todayIso, seasons.map(season => dateValue(season.endDate, todayIso)).sort()[seasons.length - 1]) : todayIso;
     const isChecked = (record: DailyRecord | undefined, goalId: string): boolean => !!record?.managedContent.split("\n").some(line => line.includes(`journal-goal:${goalId}`) && /- \[[xX]\]/.test(line));
     const daysBetween = (from: string, to: string): number => {
-      const start = new Date(`${from}T12:00:00`); const end = new Date(`${to}T12:00:00`);
-      return start > end ? 0 : Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+      const ordinal = (value: string): number => { const [year, month, day] = value.split("-").map(Number); return Date.UTC(year, month - 1, day); };
+      const start = ordinal(from); const end = ordinal(to);
+      return start > end ? 0 : Math.floor((end - start) / 86400000) + 1;
     };
     let total = 0; let complete = 0; let activeGoals = 0;
     const seasonStats: import("./types").GoalProgressSeason[] = [];
@@ -129,13 +131,13 @@ export class JournalRepository implements JournalRepositoryLike {
     };
   }
 
-  async getDailyPrayers(date = new Date().toISOString().slice(0, 10)): Promise<PrayerSummary[]> {
+  async getDailyPrayers(date = today()): Promise<PrayerSummary[]> {
     const bridge = this.getPrayerBridge();
     if (!bridge) return [];
     try { return await bridge.getDailyPrayers(date, []); } catch { return []; }
   }
 
-  async markPrayerPrayed(prayerId: string, date = new Date().toISOString().slice(0, 10)): Promise<void> {
+  async markPrayerPrayed(prayerId: string, date = today()): Promise<void> {
     const bridge = this.getPrayerBridge();
     if (bridge) await bridge.markPrayed(prayerId, date);
   }

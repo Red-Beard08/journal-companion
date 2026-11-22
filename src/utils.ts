@@ -1,6 +1,7 @@
 import type { TFile, Vault } from "obsidian";
 import { replaceManagedBlock, normalizeVaultFile, normalizeVaultFolder, safeFilename } from "./foundation-vendor";
 import { DAILY_END, DAILY_START, type GoalDefinition, type JournalSettings, type PrayerSummary, type SeasonRecord } from "./types";
+import { localDateKey } from "./date-utils";
 
 export const STARTER_AREAS = [
   ["Gratitude", "What can I receive with thankfulness today?"],
@@ -10,7 +11,7 @@ export const STARTER_AREAS = [
   ["Reflection", "What did I learn, and where do I need to grow?"],
 ] as const;
 
-export function today(): string { return new Date().toISOString().slice(0, 10); }
+export function today(): string { return localDateKey(); }
 
 export function parseDateFromFilename(name: string): string | null {
   const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(name);
