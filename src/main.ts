@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile } from "obsidian";
+import { Notice, Plugin, TFile, type EventRef } from "obsidian";
 import { registerDashboardModule } from "./dashboard-bridge";
 import { JournalDashboardView } from "./dashboard";
 import { JournalMigration } from "./migration";
@@ -47,6 +47,14 @@ export default class JournalCompanion extends Plugin {
     this.registerEvent(this.app.vault.on("modify", file => {
       if (file instanceof TFile && this.isDailyFile(file)) void this.syncCheckedPrayers(file);
     }));
+    const prayerEvent = (this.app.workspace as unknown as { on: (name: string, callback: (date: string) => void) => EventRef }).on("prayer-library:state-changed", (date: string) => {
+      void (async () => {
+        const daily = await this.repository.getDaily(date);
+        if (daily) await this.refreshDailyFile(daily.file, date);
+        await this.refresh();
+      })();
+    });
+    this.registerEvent(prayerEvent);
     this.registerDashboardWidget();
     if (this.settings.dashboard.autoRefreshSeconds > 0) this.refreshTimer = window.setInterval(() => void this.refresh(), this.settings.dashboard.autoRefreshSeconds * 1000);
     if (this.settings.createOnStartup && this.settings.setupComplete) void this.openToday(true);

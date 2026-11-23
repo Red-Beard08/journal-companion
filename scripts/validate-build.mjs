@@ -3,7 +3,7 @@ import { join } from "node:path";
 const root = process.cwd();
 const manifest = JSON.parse(readFileSync(join(root, "manifest.json"), "utf8"));
 const versions = JSON.parse(readFileSync(join(root, "versions.json"), "utf8"));
-if (manifest.id !== "journal-companion" || manifest.version !== "1.0.1" || manifest.isDesktopOnly !== false) throw new Error("Manifest identity/version/mobile flag invalid");
+if (manifest.id !== "journal-companion" || manifest.version !== "1.0.2" || manifest.isDesktopOnly !== false) throw new Error("Manifest identity/version/mobile flag invalid");
 if (!versions[manifest.version]) throw new Error("versions.json does not contain manifest version");
 for (const file of ["main.js", "manifest.json", "styles.css"]) if (!existsSync(join(root, file))) throw new Error(`Missing release asset: ${file}`);
 const bundle = readFileSync(join(root, "main.js"), "utf8");
